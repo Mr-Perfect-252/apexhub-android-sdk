@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths>
+    <!-- Downloaded APKs are stored in the app's cache directory -->
+    <cache-path
+        name="apexhub_apk_cache"
+        path="apexhub/downloads/" />
+</paths>
