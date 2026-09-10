@@ -27,7 +27,7 @@ jobs:
         run: chmod +x gradlew
 
       - name: Build & Publish SDK
-        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository --no-daemon --no-build-cache --stacktrace
+        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository --no-daemon --no-build-cache
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -44,19 +44,3 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           files: sdk/build/outputs/aar/sdk-release.aar
-          body: |
-            ## ApexHub Android SDK ${{ github.ref_name }}
-
-            ```kotlin
-            // settings.gradle.kts — add repository
-            maven {
-                url = uri("https://maven.pkg.github.com/Mr-Perfect-252/apexhub-android-sdk")
-                credentials {
-                    username = providers.gradleProperty("gpr.user").get()
-                    password = providers.gradleProperty("gpr.key").get()
-                }
-            }
-
-            // build.gradle.kts
-            implementation("com.apexhub:sdk:${{ github.ref_name }}")
-            ```
