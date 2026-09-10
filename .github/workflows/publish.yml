@@ -23,14 +23,21 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android SDK platform 34
+        run: sdkmanager "platforms;android-34" "build-tools;34.0.0"
+
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
 
       - name: Build & Publish SDK
-        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository --no-daemon --no-build-cache
+        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository --no-daemon --no-build-cache --info 2>&1 | tail -50
         env:
           GITHUB_ACTOR: ${{ github.actor }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ANDROID_HOME: /usr/local/lib/android/sdk
 
       - name: Upload AAR artifact
         if: success()
