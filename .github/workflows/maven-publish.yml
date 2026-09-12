@@ -1,0 +1,38 @@
+name: Publish Maven Package (GitHub Packages)
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x gradlew
+
+      # NOTE: output is NOT piped through tail/head — Gradle's real exit code
+      # must propagate so a failed build fails the job (the old workflow hid it).
+      - name: Build & Publish to GitHub Packages
+        run: ./gradlew :sdk:publishReleasePublicationToGitHubPackagesRepository --no-daemon --stacktrace
+        env:
+          GITHUB_ACTOR: ${{ github.actor }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
