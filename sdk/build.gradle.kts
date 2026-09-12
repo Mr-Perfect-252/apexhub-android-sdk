@@ -1,7 +1,9 @@
+import com.vanniktech.maven.publish.SonatypeHost
+
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    `maven-publish`
+    alias(libs.plugins.vanniktech.maven.publish)
 }
 
 android {
@@ -35,13 +37,6 @@ android {
     kotlinOptions {
         jvmTarget = "1.8"
     }
-
-    publishing {
-        singleVariant("release") {
-            withSourcesJar()
-            withJavadocJar()
-        }
-    }
 }
 
 dependencies {
@@ -58,40 +53,45 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
 }
 
-// ── GitHub Packages publishing ──────────────────────────────────────────────
-publishing {
-    publications {
-        create<MavenPublication>("release") {
-            groupId = "com.apexhub"
-            artifactId = "sdk"
-            version = "1.0.0"
+// ── Maven Central (Sonatype Central Portal) publishing ──────────────────────
+mavenPublishing {
+    publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
+    signAllPublications()
 
-            afterEvaluate {
-                from(components["release"])
-            }
+    coordinates("io.github.mr-perfect-252", "sdk", "1.0.0")
 
-            pom {
-                name.set("ApexHub Android SDK")
-                description.set("Official Android SDK for ApexHub — OTA updates, analytics & crash reporting")
-                url.set("https://github.com/Mr-Perfect-252/apexhub-android-sdk")
-                licenses {
-                    license {
-                        name.set("MIT License")
-                        url.set("https://opensource.org/licenses/MIT")
-                    }
-                }
+    configure(
+        com.vanniktech.maven.publish.AndroidSingleVariantLibrary(
+            variant = "release",
+            sourcesJar = true,
+            publishJavadocJar = true,
+        )
+    )
+
+    pom {
+        name.set("ApexHub Android SDK")
+        description.set("Official Android SDK for ApexHub — OTA updates, analytics & crash reporting")
+        url.set("https://github.com/Mr-Perfect-252/apexhub-android-sdk")
+        inceptionYear.set("2026")
+
+        licenses {
+            license {
+                name.set("MIT License")
+                url.set("https://opensource.org/licenses/MIT")
+                distribution.set("https://opensource.org/licenses/MIT")
             }
         }
-    }
-
-    repositories {
-        maven {
-            name = "GitHubPackages"
-            url = uri("https://maven.pkg.github.com/Mr-Perfect-252/apexhub-android-sdk")
-            credentials {
-                username = System.getenv("GITHUB_ACTOR") ?: ""
-                password = System.getenv("GITHUB_TOKEN") ?: ""
+        developers {
+            developer {
+                id.set("Mr-Perfect-252")
+                name.set("Mr-Perfect-252")
+                url.set("https://github.com/Mr-Perfect-252")
             }
+        }
+        scm {
+            url.set("https://github.com/Mr-Perfect-252/apexhub-android-sdk")
+            connection.set("scm:git:git://github.com/Mr-Perfect-252/apexhub-android-sdk.git")
+            developerConnection.set("scm:git:ssh://git@github.com/Mr-Perfect-252/apexhub-android-sdk.git")
         }
     }
 }
