@@ -28,7 +28,7 @@ jobs:
       # Output is NOT piped through tail/head — Gradle's real exit code must
       # propagate so a failed build fails the job.
       - name: Publish to Maven Central (Central Portal)
-        run: ./gradlew :sdk:publishAndReleaseToMavenCentral --no-configuration-cache --no-daemon --stacktrace
+        run: ./gradlew publishAndReleaseToMavenCentral --no-daemon --stacktrace
         env:
           ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USERNAME }}
           ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_PASSWORD }}
