@@ -5,7 +5,9 @@ import com.google.gson.JsonObject
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
+import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.Request
+import okhttp3.RequestBody.Companion.toRequestBody
 import java.util.concurrent.TimeUnit
 
 /**
@@ -99,9 +101,7 @@ internal class ApexHubApi(private val config: ApexHubConfig) {
                     "metadata" to metadata,
                 )
             )
-            val body = okhttp3.RequestBody.create(
-                okhttp3.MediaType.parse("application/json"), payload
-            )
+            val body = payload.toRequestBody("application/json".toMediaType())
             val request = Request.Builder()
                 .url("$baseUrl/api/analytics/event")
                 .post(body)
