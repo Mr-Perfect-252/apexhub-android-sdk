@@ -4,6 +4,7 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
+import android.util.Log
 import androidx.appcompat.app.AlertDialog
 import androidx.work.*
 import kotlinx.coroutines.Dispatchers
@@ -76,10 +77,15 @@ class ApexHubUpdater(
      * Returns a [UpdateCheckResult] — never throws.
      */
     suspend fun checkForUpdate(): UpdateCheckResult = try {
+        Log.d(TAG, "Checking for update: pkg=$resolvedPackageName installed=$installedVersionCode channel=${config.channel}")
         val info = api.checkForUpdate(resolvedPackageName, installedVersionCode)
+        Log.d(TAG, "Update check result: available=${info.updateAvailable} latest=${info.latestVersion} code=${info.versionCode}")
         if (info.updateAvailable) UpdateCheckResult.UpdateAvailable(info)
         else UpdateCheckResult.UpToDate
+    } catch (e: kotlinx.coroutines.CancellationException) {
+        throw e // never swallow coroutine cancellation
     } catch (e: Exception) {
+        Log.e(TAG, "Update check failed", e)
         UpdateCheckResult.Error(e.message ?: "Unknown error", e)
     }
 
@@ -220,6 +226,7 @@ class ApexHubUpdater(
         onProgress: ((Int) -> Unit)?,
     ) {
         try {
+            Log.d(TAG, "Downloading update ${info.latestVersion} from ${info.downloadUrl}")
             val apkFile = downloader.download(
                 url = info.downloadUrl ?: throw ApexHubException("No download URL in update response"),
                 versionName = info.latestVersion ?: "update",
@@ -229,11 +236,17 @@ class ApexHubUpdater(
             withContext(Dispatchers.Main) {
                 ApkInstaller.install(activity, apkFile, resolvedPackageName)
             }
-        } catch (e: ApexHubException) {
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            throw e // never swallow coroutine cancellation
+        } catch (e: Exception) {
+            // Catch EVERYTHING (network IOException, file errors, install errors, etc.)
+            // so a failure is always surfaced to the user instead of silently
+            // killing the coroutine and leaving them stuck re-prompting forever.
+            Log.e(TAG, "Update download/install failed", e)
             withContext(Dispatchers.Main) {
                 AlertDialog.Builder(activity)
                     .setTitle("Update failed")
-                    .setMessage(e.message)
+                    .setMessage(e.message ?: "An unexpected error occurred while updating.")
                     .setPositiveButton("OK", null)
                     .show()
             }
@@ -293,4 +306,8 @@ class ApexHubUpdater(
     }
 
     private data class DeviceInfo(val deviceId: String, val osVersion: String, val model: String)
+
+    private companion object {
+        const val TAG = "ApexHub"
+    }
 }

@@ -7,6 +7,7 @@ import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.provider.Settings
+import android.util.Log
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import java.io.File
@@ -27,8 +28,18 @@ internal object ApkInstaller {
      * @param appName    The app name shown in the educational dialog.
      */
     fun install(activity: Activity, apkFile: File, appName: String) {
+        if (!apkFile.exists() || apkFile.length() == 0L) {
+            Log.e(TAG, "Cannot install: APK file missing or empty at ${apkFile.absolutePath}")
+            AlertDialog.Builder(activity)
+                .setTitle("Update failed")
+                .setMessage("The downloaded update could not be found. Please try again.")
+                .setPositiveButton("OK", null)
+                .show()
+            return
+        }
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             if (!activity.packageManager.canRequestPackageInstalls()) {
+                Log.d(TAG, "Install permission not granted; prompting user")
                 showInstallPermissionDialog(activity, apkFile, appName)
                 return
             }
@@ -37,15 +48,33 @@ internal object ApkInstaller {
     }
 
     private fun triggerInstall(context: Context, apkFile: File) {
-        val authority = "${context.packageName}.apexhub.fileprovider"
-        val apkUri: Uri = FileProvider.getUriForFile(context, authority, apkFile)
+        try {
+            val authority = "${context.packageName}.apexhub.fileprovider"
+            val apkUri: Uri = FileProvider.getUriForFile(context, authority, apkFile)
 
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(apkUri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            Log.d(TAG, "Launching system installer for ${apkFile.name}")
+            context.startActivity(intent)
+        } catch (e: IllegalArgumentException) {
+            // FileProvider can't resolve the file — usually a misconfigured authority
+            // or file_paths.xml in the host app.
+            Log.e(TAG, "FileProvider misconfiguration — cannot share APK for install", e)
+            showInstallErrorToast(context, "Update install failed: the app is misconfigured (FileProvider).")
+        } catch (e: android.content.ActivityNotFoundException) {
+            Log.e(TAG, "No activity available to handle APK install", e)
+            showInstallErrorToast(context, "Update install failed: no installer available on this device.")
+        } catch (e: Exception) {
+            Log.e(TAG, "Unexpected error launching installer", e)
+            showInstallErrorToast(context, "Update install failed: ${e.message}")
         }
-        context.startActivity(intent)
+    }
+
+    private fun showInstallErrorToast(context: Context, message: String) {
+        android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
     }
 
     /**
@@ -99,7 +128,10 @@ internal object ApkInstaller {
 
         val file = File(pendingPath)
         if (file.exists()) {
+            Log.d(TAG, "Resuming pending install after permission grant")
             triggerInstall(activity, file)
         }
     }
+
+    private const val TAG = "ApexHub"
 }
