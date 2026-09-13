@@ -14,7 +14,7 @@ android {
         minSdk = 21
         targetSdk = 34
         // SDK version injected at build time
-        buildConfigField("String", "SDK_VERSION", "\"1.0.0\"")
+        buildConfigField("String", "SDK_VERSION", "\"1.0.1\"")
         buildConfigField("String", "DEFAULT_BASE_URL", "\"https://apex-hub-production.vercel.app\"")
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -58,7 +58,7 @@ mavenPublishing {
     publishToMavenCentral(SonatypeHost.CENTRAL_PORTAL, automaticRelease = true)
     signAllPublications()
 
-    coordinates("io.github.mr-perfect-252", "sdk", "1.0.0")
+    coordinates("io.github.mr-perfect-252", "sdk", "1.0.1")
 
     configure(
         com.vanniktech.maven.publish.AndroidSingleVariantLibrary(
