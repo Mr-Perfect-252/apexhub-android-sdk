@@ -165,4 +165,4 @@ No manual additions needed.
 
 ## License
 
-MIT © ApexHub Team
+© ApexHub Team
