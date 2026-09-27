@@ -1,20 +1,26 @@
 # ApexHub Android SDK
 
-Official Android SDK for [ApexHub](https://apexhub.app) — the independent Android app store.
-
-Gives your app three capabilities in one library:
+Official Android SDK for [ApexHub](https://apexhub.app) — independent Android app distribution with
+in-app **OTA updates**, **background update checks**, and **analytics**.
 
 | Feature | What it does |
 |---|---|
-| **OTA Updates** | Periodically checks for new versions, prompts users, downloads & installs |
-| **Background checks** | WorkManager job runs every N hours even when app is closed |
-| **Analytics** | Sends install, update and custom events to your ApexHub dashboard |
+| **OTA updates** | Checks for a new version, prompts the user, downloads the APK (SHA-256 verified) and hands it to the Android installer |
+| **Background checks** | A WorkManager job wakes up every N hours even when the app is closed and posts a notification |
+| **Analytics** | Sends custom events (with device metadata) to your ApexHub dashboard |
+
+- **Package:** `com.apexhub.sdk`
+- **Latest version:** `1.0.1`
+- **Min SDK:** 21 · **Compile/Target SDK:** 34
+- **Maven:** `io.github.mr-perfect-252:sdk`
+- **Release notes:** [RELEASE_NOTES.md](RELEASE_NOTES.md)
+- **License:** MIT
 
 ---
 
 ## Installation
 
-Add the GitHub Packages repository and the dependency to your app's `build.gradle.kts`:
+The SDK is published to **Maven Central** — no credentials, no extra repositories.
 
 ```kotlin
 // settings.gradle.kts
@@ -22,32 +28,41 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
-        maven {
-            url = uri("https://maven.pkg.github.com/Mr-Perfect-252/apexhub-android-sdk")
-            credentials {
-                username = providers.gradleProperty("gpr.user").orElse(System.getenv("GITHUB_ACTOR") ?: "").get()
-                password = providers.gradleProperty("gpr.key").orElse(System.getenv("GITHUB_TOKEN") ?: "").get()
-            }
-        }
     }
 }
+```
 
+```kotlin
 // app/build.gradle.kts
 dependencies {
-    implementation("com.apexhub:sdk:1.0.0")
+    implementation("io.github.mr-perfect-252:sdk:1.0.1")
 }
 ```
+
+> **Upgrading from 1.0.0?** `1.0.1` is a drop-in patch — no API changes. See
+> [RELEASE_NOTES.md](RELEASE_NOTES.md). Apps already shipped with 1.0.0 must be rebuilt
+> and re-published to receive the fix.
+
+The SDK depends on `okhttp`, `gson`, `androidx.core`, `androidx.appcompat`, and `androidx.work`
+(they are `implementation` dependencies and are resolved transitively).
+
+**Requirements**
+
+- `android.useAndroidX=true` in `gradle.properties` (AndroidX is required).
+- The host Activity you pass to the update flow must use an **AppCompat theme** (the SDK's dialogs
+  use `androidx.appcompat.app.AlertDialog`).
 
 ---
 
 ## Quickstart
 
-### 1. Get your Public Key
+### 1. Get your public key
 
-In the [ApexHub Console](https://apexhub.app/console) → your app → **Settings** tab.
-Copy the `pk_live_...` key.
+ApexHub Console → your app → **Settings** → copy the `pk_live_…` key.
 
-### 2. Initialize (Application.onCreate recommended)
+> ⚠️ Only the **public** key (`pk_live_` / `pk_test_`) goes in your app. Never ship a secret key.
+
+### 2. Schedule background checks — `Application.onCreate()`
 
 ```kotlin
 class MyApplication : Application() {
@@ -58,18 +73,18 @@ class MyApplication : Application() {
             context = this,
             config = ApexHubConfig(
                 publicKey = "pk_live_YOUR_KEY_HERE",
-                channel = "stable",            // or "beta", "nightly"
-                checkIntervalHours = 6,        // background check frequency
+                channel = "stable",        // "stable" | "beta" | "nightly"
+                checkIntervalHours = 6L,   // background check frequency (>= 1)
             )
         )
 
-        // Schedule silent background checks — posts a notification when update found
+        // Safe to call on every launch — WorkManager deduplicates by work name.
         updater.schedulePeriodicCheck(appDisplayName = "My App")
     }
 }
 ```
 
-### 3. Foreground check on launch (MainActivity.onCreate)
+### 3. Check on launch — `MainActivity.onCreate()`
 
 ```kotlin
 class MainActivity : AppCompatActivity() {
@@ -82,87 +97,82 @@ class MainActivity : AppCompatActivity() {
 
         updater = ApexHubUpdater(
             context = this,
-            config = ApexHubConfig(publicKey = "pk_live_YOUR_KEY_HERE")
+            config = ApexHubConfig(publicKey = "pk_live_YOUR_KEY_HERE"),
         )
 
-        // One-liner: check → dialog → download → install
+        // One-liner: check → dialog → download (SHA-256 verified) → install
         lifecycleScope.launch {
             updater.checkAndPrompt(activity = this@MainActivity)
         }
     }
-
-    // Resume pending install if user went to settings to grant permission
-    override fun onResume() {
-        super.onResume()
-        ApkInstaller.resumePendingInstall(this)
-    }
 }
 ```
 
+That's it. The SDK handles the update dialog, download progress, integrity verification, and the
+Android system-installer flow.
+
 ---
 
-## Advanced: Custom UI
+## At a glance
 
 ```kotlin
-lifecycleScope.launch {
-    updater.checkAndUpdate(
-        activity = this@MainActivity,
-        onUpdateFound = { info ->
-            // Show your own dialog — return true to proceed with download
-            showCustomUpdateSheet(info.latestVersion, info.releaseNotes)
-        },
-        onProgress = { percent ->
-            progressBar.progress = percent
-            progressText.text = "Downloading... $percent%"
-        },
-        onError = { message ->
-            Log.e("ApexHub", "Update check failed: $message")
-        }
-    )
-}
+// Check only (never throws)
+val result = updater.checkForUpdate()          // UpdateCheckResult
+
+// Full flow with default UI + callbacks
+updater.checkAndUpdate(
+    activity          = this,
+    onUpdateFound     = { info -> true },       // return false to skip
+    onProgress        = { pct  -> /* 0..100 */ },
+    onReadyToInstall  = { act  -> /* APK verified */ },
+    onError           = { msg  -> /* handle */ },
+)
+
+// Background scheduling
+updater.schedulePeriodicCheck(appDisplayName = "My App")
+updater.cancelPeriodicCheck()
+
+// Analytics (fire-and-forget)
+updater.trackEvent(appId = "app_123", eventType = "custom", eventName = "purchase_complete")
 ```
 
 ---
 
-## Update Strategies
+## Documentation
 
-| Strategy | Behaviour |
+| Guide | Contents |
 |---|---|
-| `UpdateStrategy.FLEXIBLE` (default) | User can tap "Later" and continue using the app |
-| `UpdateStrategy.IMMEDIATE` | Dialog is non-dismissible — use only for critical security patches |
+| [docs/getting-started.md](docs/getting-started.md) | Install, permissions, key, initialization, first update |
+| [docs/configuration.md](docs/configuration.md) | Every `ApexHubConfig` field, defaults, validation rules |
+| [docs/ota-updates.md](docs/ota-updates.md) | The full update flow: check → prompt → download → install, strategies, mandatory updates |
+| [docs/background-checks.md](docs/background-checks.md) | WorkManager scheduling, constraints, notifications, battery |
+| [docs/analytics.md](docs/analytics.md) | `trackEvent`, payload, attribution, dashboards |
+| [docs/api-reference.md](docs/api-reference.md) | Public API surface: classes, methods, models, exceptions |
+| [docs/backend-api.md](docs/backend-api.md) | The REST endpoints the SDK calls |
+| [docs/troubleshooting.md](docs/troubleshooting.md) | Common failures and fixes |
+| [docs/known-issues.md](docs/known-issues.md) | Known limitations + workarounds |
+| [RELEASE_NOTES.md](RELEASE_NOTES.md) | Version history |
 
 ---
 
-## Analytics
+## Permissions
 
-```kotlin
-lifecycleScope.launch {
-    updater.trackEvent(
-        appId = "app_YOUR_APP_ID",    // from ApexHub Console
-        eventType = "custom",
-        eventName = "purchase_complete",
-        metadata = mapOf("plan" to "pro", "price" to 9.99)
-    )
-}
-```
+The SDK ships its own manifest and **merges these automatically** — you don't add anything:
 
-Events appear in your ApexHub Console → **Analytics** tab in real time.
-
----
-
-## AndroidManifest.xml
-
-The SDK merges these permissions automatically via its own manifest:
 ```xml
 <uses-permission android:name="android.permission.INTERNET" />
 <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
 ```
 
-No manual additions needed.
+It also contributes the `FileProvider` (`${applicationId}.apexhub.fileprovider`) and the
+`res/xml/apexhub_file_paths.xml` used to share the downloaded APK with the system installer.
+
+> On Android 8.0+ the user must also grant **"Install unknown apps"** for your app. The SDK walks
+> them through this — see [docs/ota-updates.md](docs/ota-updates.md#the-install-permission-flow).
 
 ---
 
 ## License
 
-© ApexHub Team
+MIT © ApexHub Team
