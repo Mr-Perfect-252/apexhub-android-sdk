@@ -9,6 +9,10 @@ in-app **OTA updates**, **background update checks**, and **analytics**.
 | **Background checks** | A WorkManager job wakes up every N hours even when the app is closed and posts a notification |
 | **Analytics** | Sends custom events (with device metadata) to your ApexHub dashboard |
 
+> **Want automatic sessions, screen views, and crash reporting too?** Add the companion Maven
+> artifact `io.github.mr-perfect-252:apex-analytics` — a drop-in `implementation(...)` that talks to
+> ApexHub only. See [docs/analytics.md](docs/analytics.md#scope-what-this-sdk-does-and-doesnt-cover).
+
 - **Package:** `com.apexhub.sdk`
 - **Latest version:** `1.0.1`
 - **Min SDK:** 21 · **Compile/Target SDK:** 34

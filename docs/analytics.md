@@ -110,9 +110,20 @@ distribution breakdown.
 **Not included:** automatic session tracking, automatic install/update events, and crash reporting.
 The SDK provides the transport for the events *you* emit; it does not instrument your app for you.
 
-If you need richer product analytics (sessions, funnels) and automatic crash capture, there is a
-separate companion SDK, **`open-analytics-android`**, which targets ApexHub's batched ingest endpoints
-(`POST /api/v1/track`, `POST /api/v1/crash-report`). Both feeds land in the same dashboard.
+If you need richer product analytics (sessions, screen views, funnels) and automatic crash capture,
+install the companion Maven artifact **`apex-analytics`** — no other setup is needed, it is a normal
+Maven Central dependency:
+
+```kotlin
+dependencies {
+    implementation("io.github.mr-perfect-252:apex-analytics:1.0.0")
+}
+```
+
+`apex-analytics` talks to **ApexHub only** (its ingestion endpoints are baked into the SDK) and is
+activated by passing your app's `pk_live_…` key as `apiKey` to `OpenAnalytics.init(...)`. It ingests
+at `POST /api/v1/track` and `POST /api/v1/crash-report`. Both feeds land in the same dashboard as
+`trackEvent`, so you can use one or both.
 
 ---
 
